@@ -1,4 +1,4 @@
-local ziparchive = require 'ziparchive'
+local zip = require 'zip'
 local xmlize = require 'xmlize'
 
 local M = {}
@@ -6,10 +6,11 @@ local M = {}
 local colRowPattern = "([a-zA-Z]*)(%d*)"
 
 local function _xlsx_readdocument(xlsx, documentName)
-    local file = xlsx.archive:fileopen(documentName)
+    local file = xlsx.archive:open(documentName)
     if not file then return end
-    local buffer = xlsx.archive:fileread(file)
-    xlsx.archive:fileclose(file)
+    local buffer = file:read('*all')
+    file:close()
+
     return xmlize.luaize(buffer)
 end
 
@@ -130,6 +131,7 @@ local __sheetMetatable = {
                         if not columns[colNum] then
                             columns[colNum] = {}
                         end
+			local formula
                         local cell = Cell(rowNum, colNum, data, colType, formula)
                         table.insert(rows[rowNum], cell)
                         table.insert(columns[colNum], cell)
@@ -261,9 +263,10 @@ local __workbookMetatable = {
 function M.Workbook(filename)
     local self = {}
 
-    self.archive = ziparchive.open(filename)
+    self.archive = assert(zip.open(filename))
 
-    local sharedStringsXml = _xlsx_readdocument(self, 'xl/sharedstrings.xml')
+    local sharedStringsXml = _xlsx_readdocument(self, 'xl/sharedStrings.xml')
+
     self.sharedStrings = {}
     if sharedStringsXml then
         for _, str in ipairs(sharedStringsXml.sst[1]['#'].si) do
